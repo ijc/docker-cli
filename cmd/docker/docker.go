@@ -113,6 +113,21 @@ func setupHelpCommand(dockerCli *command.DockerCli, rootCmd, helpCmd *cobra.Comm
 			return err
 		}
 
+		if len(args) > 0 {
+			helpcmd, err := pluginmanager.PluginRunCommand(dockerCli, args[0], rootCmd)
+			if err == nil {
+				helpcmd.Stdin = os.Stdin
+				helpcmd.Stdout = os.Stdout
+				helpcmd.Stderr = os.Stderr
+				err = helpcmd.Run()
+				if err != nil {
+					return err
+				}
+			}
+			if !pluginmanager.IsNotFound(err) {
+				return err
+			}
+		}
 		// Add a stub entry for every plugin so they are
 		// included in the help output. If we have no args
 		// then this is being used for `docker help` and we

@@ -111,6 +111,21 @@ func setupHelpCommand(dockerCli *command.DockerCli, rootCmd, helpCmd *cobra.Comm
 			return err
 		}
 
+		if len(args) > 0 {
+			helpcmd, err := pluginmanager.PluginRunCommand(dockerCli, args[0], rootCmd)
+			if err == nil {
+				helpcmd.Stdin = os.Stdin
+				helpcmd.Stdout = os.Stdout
+				helpcmd.Stderr = os.Stderr
+				err = helpcmd.Run()
+				if err != nil {
+					return err
+				}
+			}
+			if !pluginmanager.IsNotFound(err) {
+				return err
+			}
+		}
 		if origRunE != nil {
 			return origRunE(c, args)
 		}

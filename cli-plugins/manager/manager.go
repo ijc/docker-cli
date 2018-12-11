@@ -181,3 +181,10 @@ func PluginRunCommand(name string, rootcmd *cobra.Command) (*exec.Cmd, error) {
 	// they lack e.g. global options which we must propagate here.
 	return runPluginCommand(name, rootcmd, os.Args[1:])
 }
+
+// PluginHelpCommand returns an "os/exec".Cmd which when .Run() will execute the named plugin's help command.
+// The rootcmd argument is referenced to determine the set of builtin commands in order to detect conficts.
+// The error returned is an ErrPluginNotFound if no plugin was found or if the first candidate plugin was invalid somehow.
+func PluginHelpCommand(name string, rootcmd *cobra.Command) (*exec.Cmd, error) {
+	return runPluginCommand(name, rootcmd, []string{"help", name})
+}

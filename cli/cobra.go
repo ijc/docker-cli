@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	pluginmanager "github.com/docker/cli/cli-plugins/manager"
 	cliconfig "github.com/docker/cli/cli/config"
 	cliflags "github.com/docker/cli/cli/flags"
 	"github.com/docker/docker/pkg/term"
@@ -26,6 +27,8 @@ func setupCommonRootCommand(rootCmd *cobra.Command) (*cliflags.ClientOptions, *p
 	cobra.AddTemplateFunc("operationSubCommands", operationSubCommands)
 	cobra.AddTemplateFunc("managementSubCommands", managementSubCommands)
 	cobra.AddTemplateFunc("wrappedFlagUsages", wrappedFlagUsages)
+	cobra.AddTemplateFunc("commandVendor", commandVendor)
+	cobra.AddTemplateFunc("isFirstLevelCommand", isFirstLevelCommand) // is it an immediate sub-command of the root
 
 	rootCmd.SetUsageTemplate(usageTemplate)
 	rootCmd.SetHelpTemplate(helpTemplate)
@@ -106,6 +109,11 @@ var helpCommand = &cobra.Command{
 			return errors.Errorf("unknown help topic: %v", strings.Join(args, " "))
 		}
 
+		// Add a stub entry for every plugin so they are included in the help output
+		if err := pluginmanager.AddPluginCommandStubs(c.Root(), false); err != nil {
+			return err
+		}
+
 		helpFunc := cmd.HelpFunc()
 		helpFunc(cmd, args)
 		return nil
@@ -136,6 +144,21 @@ func wrappedFlagUsages(cmd *cobra.Command) string {
 		width = int(ws.Width)
 	}
 	return cmd.Flags().FlagUsagesWrapped(width - 1)
+}
+
+func isFirstLevelCommand(cmd *cobra.Command) bool {
+	return cmd.Parent() == cmd.Root()
+}
+
+func commandVendor(cmd *cobra.Command) string {
+	width := 13
+	if v, ok := cmd.Annotations[pluginmanager.CommandAnnotPluginVendor]; ok {
+		if len(v) > width-2 {
+			v = v[:width-3] + "…"
+		}
+		return fmt.Sprintf("%-*s", width, "("+v+")")
+	}
+	return strings.Repeat(" ", width)
 }
 
 func managementSubCommands(cmd *cobra.Command) []*cobra.Command {
@@ -178,7 +201,7 @@ Options:
 Management Commands:
 
 {{- range managementSubCommands . }}
-  {{rpad .Name .NamePadding }} {{.Short}}
+  {{rpad .Name .NamePadding }} {{ if isFirstLevelCommand .}}{{commandVendor .}} {{ end}}{{.Short}}
 {{- end}}
 
 {{- end}}
@@ -187,7 +210,7 @@ Management Commands:
 Commands:
 
 {{- range operationSubCommands . }}
-  {{rpad .Name .NamePadding }} {{.Short}}
+  {{rpad .Name .NamePadding }} {{ if isFirstLevelCommand .}}{{commandVendor .}} {{ end}}{{.Short}}
 {{- end}}
 {{- end}}
 

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	pluginmanager "github.com/docker/cli/cli-plugins/manager"
@@ -11,6 +12,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+)
+
+const (
+	// annotPluginRootCommand is added as an annotation to a plug root command.
+	annotPluginRootCommand = "com.docker.cli.cli.plugin-root"
 )
 
 // setupCommonRootCommand contains the setup common to
@@ -59,6 +65,11 @@ func SetupPluginRootCommand(rootCmd *cobra.Command) (*cliflags.ClientOptions, *p
 	rootCmd.PersistentFlags().BoolP("help", "", false, "Print usage")
 	rootCmd.PersistentFlags().Lookup("help").Hidden = true
 
+	if rootCmd.Annotations == nil {
+		rootCmd.Annotations = make(map[string]string)
+	}
+	rootCmd.Annotations[annotPluginRootCommand] = "true"
+
 	return opts, flags
 }
 
@@ -104,13 +115,30 @@ var helpCommand = &cobra.Command{
 	PersistentPreRun:  func(cmd *cobra.Command, args []string) {},
 	PersistentPostRun: func(cmd *cobra.Command, args []string) {},
 	RunE: func(c *cobra.Command, args []string) error {
-		cmd, args, e := c.Root().Find(args)
+		root := c.Root()
+		cmd, args, e := root.Find(args)
 		if cmd == nil || e != nil || len(args) > 0 {
+			// If the root is not a plugin root and we
+			// have a single arg (the command) then try
+			// checking if it is a plugin and if it is
+			// then call it.
+			if len(args) == 1 && root.Annotations[annotPluginRootCommand] != "true" {
+				helpcmd, err := pluginmanager.PluginHelpCommand(args[0], root)
+				if err == nil {
+					helpcmd.Stdin = os.Stdin
+					helpcmd.Stdout = os.Stdout
+					helpcmd.Stderr = os.Stderr
+					return helpcmd.Run()
+				}
+				if _, ok := err.(pluginmanager.ErrPluginNotFound); !ok {
+					return err
+				}
+			}
 			return errors.Errorf("unknown help topic: %v", strings.Join(args, " "))
 		}
 
 		// Add a stub entry for every plugin so they are included in the help output
-		if err := pluginmanager.AddPluginCommandStubs(c.Root(), false); err != nil {
+		if err := pluginmanager.AddPluginCommandStubs(root, false); err != nil {
 			return err
 		}
 

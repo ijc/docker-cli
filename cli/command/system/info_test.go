@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	pluginmanager "github.com/docker/cli/cli-plugins/manager"
 	"github.com/docker/cli/internal/test"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/registry"
@@ -190,6 +191,24 @@ PQQDAgNIADBFAiEAo9fTQNM5DP9bHVcTJYfl2Cay1bFu1E+lnpmN+EYJfeACIGKH
 	},
 }
 
+var samplePluginsInfo = []pluginmanager.Plugin{
+	{
+		Name: "goodplugin",
+		Path: "/path/to/docker-goodplugin",
+		Metadata: pluginmanager.Metadata{
+			SchemaVersion:    "0.1.0",
+			ShortDescription: "unit test is good",
+			Vendor:           "ACME Corp",
+			Version:          "0.1.0",
+		},
+	},
+	{
+		Name: "badplugin",
+		Path: "/path/to/docker-badplugin",
+		Err:  pluginmanager.NewPluginError("something wrong"),
+	},
+}
+
 func TestPrettyPrintInfo(t *testing.T) {
 	infoWithSwarm := sampleInfoNoSwarm
 	infoWithSwarm.Swarm = sampleSwarmInfo
@@ -225,6 +244,7 @@ func TestPrettyPrintInfo(t *testing.T) {
 	for _, tc := range []struct {
 		doc            string
 		dockerInfo     types.Info
+		pluginsInfo    []pluginmanager.Plugin
 		expectedGolden string
 		warningsGolden string
 	}{
@@ -232,6 +252,12 @@ func TestPrettyPrintInfo(t *testing.T) {
 			doc:            "info without swarm",
 			dockerInfo:     sampleInfoNoSwarm,
 			expectedGolden: "docker-info-no-swarm",
+		},
+		{
+			doc:            "info with plugins",
+			dockerInfo:     sampleInfoNoSwarm,
+			pluginsInfo:    samplePluginsInfo,
+			expectedGolden: "docker-info-plugins",
 		},
 		{
 			doc:            "info with swarm",
@@ -253,7 +279,11 @@ func TestPrettyPrintInfo(t *testing.T) {
 	} {
 		t.Run(tc.doc, func(t *testing.T) {
 			cli := test.NewFakeCli(&fakeClient{})
-			assert.NilError(t, prettyPrintInfo(cli, tc.dockerInfo))
+			info := clientInfo{
+				Info:       tc.dockerInfo,
+				CLIPlugins: tc.pluginsInfo,
+			}
+			assert.NilError(t, prettyPrintInfo(cli, info))
 			golden.Assert(t, cli.OutBuffer().String(), tc.expectedGolden+".golden")
 			if tc.warningsGolden != "" {
 				golden.Assert(t, cli.ErrBuffer().String(), tc.warningsGolden+".golden")

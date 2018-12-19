@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/docker/cli/cli"
+	pluginmanager "github.com/docker/cli/cli-plugins/manager"
 	"github.com/docker/cli/cli/command"
 	"github.com/docker/cli/cli/debug"
 	"github.com/docker/cli/templates"
@@ -21,6 +22,12 @@ type infoOptions struct {
 	format string
 }
 
+type clientInfo struct {
+	types.Info
+
+	CLIPlugins []pluginmanager.Plugin
+}
+
 // NewInfoCommand creates a new cobra.Command for `docker info`
 func NewInfoCommand(dockerCli command.Cli) *cobra.Command {
 	var opts infoOptions
@@ -30,7 +37,7 @@ func NewInfoCommand(dockerCli command.Cli) *cobra.Command {
 		Short: "Display system-wide information",
 		Args:  cli.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runInfo(dockerCli, &opts)
+			return runInfo(cmd, dockerCli, &opts)
 		},
 	}
 
@@ -41,12 +48,23 @@ func NewInfoCommand(dockerCli command.Cli) *cobra.Command {
 	return cmd
 }
 
-func runInfo(dockerCli command.Cli, opts *infoOptions) error {
-	ctx := context.Background()
-	info, err := dockerCli.Client().Info(ctx)
+func runInfo(cmd *cobra.Command, dockerCli command.Cli, opts *infoOptions) error {
+	var (
+		info clientInfo
+		err  error
+	)
+
+	info.CLIPlugins, err = pluginmanager.ListPlugins(dockerCli, cmd.Root())
 	if err != nil {
 		return err
 	}
+
+	ctx := context.Background()
+	info.Info, err = dockerCli.Client().Info(ctx)
+	if err != nil {
+		return err
+	}
+
 	if opts.format == "" {
 		return prettyPrintInfo(dockerCli, info)
 	}
@@ -54,7 +72,7 @@ func runInfo(dockerCli command.Cli, opts *infoOptions) error {
 }
 
 // nolint: gocyclo
-func prettyPrintInfo(dockerCli command.Cli, info types.Info) error {
+func prettyPrintInfo(dockerCli command.Cli, info clientInfo) error {
 	fmt.Fprintln(dockerCli.Out(), "Containers:", info.Containers)
 	fmt.Fprintln(dockerCli.Out(), " Running:", info.ContainersRunning)
 	fmt.Fprintln(dockerCli.Out(), " Paused:", info.ContainersPaused)
@@ -86,7 +104,7 @@ func prettyPrintInfo(dockerCli command.Cli, info types.Info) error {
 	fmt.Fprintln(dockerCli.Out(), " Log:", strings.Join(info.Plugins.Log, " "))
 
 	fmt.Fprintln(dockerCli.Out(), "Swarm:", info.Swarm.LocalNodeState)
-	printSwarmInfo(dockerCli, info)
+	printSwarmInfo(dockerCli, info.Info)
 
 	if len(info.Runtimes) > 0 {
 		fmt.Fprint(dockerCli.Out(), "Runtimes:")
@@ -207,9 +225,24 @@ func prettyPrintInfo(dockerCli command.Cli, info types.Info) error {
 	if info.ProductLicense != "" {
 		fmt.Fprintln(dockerCli.Out(), "Product License:", info.ProductLicense)
 	}
+	if len(info.CLIPlugins) > 0 {
+		fmt.Fprintln(dockerCli.Out(), "CLI Plugins:")
+		fmt.Fprintln(dockerCli.Out(), " valid:")
+		for _, p := range info.CLIPlugins {
+			if p.Err == nil {
+				fmt.Fprintf(dockerCli.Out(), "  %s: (%s, %s) %s\n", p.Name, p.Version, p.Vendor, p.ShortDescription)
+			}
+		}
+		fmt.Fprintln(dockerCli.Out(), " invalid:")
+		for _, p := range info.CLIPlugins {
+			if p.Err != nil {
+				fmt.Fprintf(dockerCli.Out(), "  %s: %s\n", p.Name, p.Err.Error())
+			}
+		}
+	}
 	fmt.Fprint(dockerCli.Out(), "\n")
 
-	printWarnings(dockerCli, info)
+	printWarnings(dockerCli, info.Info)
 	return nil
 }
 
@@ -382,7 +415,7 @@ func getBackingFs(info types.Info) string {
 	return ""
 }
 
-func formatInfo(dockerCli command.Cli, info types.Info, format string) error {
+func formatInfo(dockerCli command.Cli, info clientInfo, format string) error {
 	tmpl, err := templates.Parse(format)
 	if err != nil {
 		return cli.StatusError{StatusCode: 64,

@@ -12,8 +12,8 @@ const (
 
 // Metadata provided by the plugin
 type Metadata struct {
-	Version          string
-	Vendor           string
-	ShortDescription string
-	SchemaVersion    string
+	Version          string `json:",omitempty"`
+	Vendor           string `json:",omitempty"`
+	ShortDescription string `json:",omitempty"`
+	SchemaVersion    string `json:",omitempty"`
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/docker/cli/cli"
 	"github.com/docker/cli/cli/command"
+	"github.com/docker/cli/cli/version"
 	"github.com/docker/cli/templates"
 	kubernetes "github.com/docker/compose-on-kubernetes/api"
 	"github.com/docker/docker/api/types"
@@ -133,13 +134,13 @@ func runVersion(dockerCli command.Cli, opts *versionOptions) error {
 
 	vd := versionInfo{
 		Client: clientVersion{
-			Platform:          struct{ Name string }{cli.PlatformName},
-			Version:           cli.Version,
+			Platform:          struct{ Name string }{version.PlatformName},
+			Version:           version.Version,
 			APIVersion:        dockerCli.Client().ClientVersion(),
 			DefaultAPIVersion: dockerCli.DefaultVersion(),
 			GoVersion:         runtime.Version(),
-			GitCommit:         cli.GitCommit,
-			BuildTime:         reformatDate(cli.BuildTime),
+			GitCommit:         version.GitCommit,
+			BuildTime:         reformatDate(version.BuildTime),
 			Os:                runtime.GOOS,
 			Arch:              runtime.GOARCH,
 			Experimental:      dockerCli.ClientInfo().HasExperimental,

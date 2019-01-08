@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/docker/cli/cli"
 	"github.com/docker/cli/cli/config"
 	cliconfig "github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/configfile"
@@ -21,6 +20,7 @@ import (
 	manifeststore "github.com/docker/cli/cli/manifest/store"
 	registryclient "github.com/docker/cli/cli/registry/client"
 	"github.com/docker/cli/cli/trust"
+	"github.com/docker/cli/cli/version"
 	dopts "github.com/docker/cli/opts"
 	clitypes "github.com/docker/cli/types"
 	"github.com/docker/docker/api"
@@ -372,5 +372,5 @@ func withHTTPClient(tlsOpts *tlsconfig.Options) func(*client.Client) error {
 
 // UserAgent returns the user agent string used for making API requests
 func UserAgent() string {
-	return "Docker-Client/" + cli.Version + " (" + runtime.GOOS + ")"
+	return "Docker-Client/" + version.Version + " (" + runtime.GOOS + ")"
 }

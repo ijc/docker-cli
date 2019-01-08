@@ -10,6 +10,7 @@ import (
 	"github.com/docker/cli/cli/command"
 	"github.com/docker/cli/cli/command/commands"
 	cliflags "github.com/docker/cli/cli/flags"
+	"github.com/docker/cli/cli/version"
 	"github.com/docker/cli/internal/containerizedengine"
 	"github.com/docker/docker/api/types/versions"
 	"github.com/docker/docker/client"
@@ -43,7 +44,7 @@ func newDockerCommand(dockerCli *command.DockerCli) *cobra.Command {
 			}
 			return isSupported(cmd, dockerCli)
 		},
-		Version:               fmt.Sprintf("%s, build %s", cli.Version, cli.GitCommit),
+		Version:               fmt.Sprintf("%s, build %s", version.Version, version.GitCommit),
 		DisableFlagsInUseLine: true,
 	}
 	opts, flags = cli.SetupRootCommand(cmd)

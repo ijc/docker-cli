@@ -99,5 +99,13 @@ func newPlugin(c Candidate, rootcmd *cobra.Command) (Plugin, error) {
 		return p, nil
 	}
 
+	if p.Metadata.SchemaVersion != "0.1.0" {
+		p.Err = NewPluginError("plugin SchemaVersion %q is not valid, must be 0.1.0", p.Metadata.SchemaVersion)
+		return p, nil
+	}
+	if p.Metadata.Vendor == "" {
+		p.Err = NewPluginError("plugin metadata does not define a vendor")
+		return p, nil
+	}
 	return p, nil
 }

@@ -31,7 +31,6 @@ func (c *fakeCandidate) Metadata() ([]byte, error) {
 func TestValidateCandidate(t *testing.T) {
 	var (
 		goodPluginName = NamePrefix + "goodplugin"
-		goodVersion    = "0.1.0"
 
 		builtinName  = NamePrefix + "builtin"
 		builtinAlias = NamePrefix + "alias"
@@ -64,8 +63,12 @@ func TestValidateCandidate(t *testing.T) {
 		{c: &fakeCandidate{path: builtinAlias}, invalid: `plugin "alias" duplicates an alias of builtin command "builtin"`},
 		{c: &fakeCandidate{path: goodPluginPath, exec: false}, invalid: fmt.Sprintf("failed to fetch metadata: faked a failure to exec %q", goodPluginPath)},
 		{c: &fakeCandidate{path: goodPluginPath, exec: true, meta: `xyzzy`}, invalid: "invalid character"},
+		{c: &fakeCandidate{path: goodPluginPath, exec: true, meta: `{}`}, invalid: `plugin SchemaVersion "" is not valid`},
+		{c: &fakeCandidate{path: goodPluginPath, exec: true, meta: `{"SchemaVersion": "xyzzy"}`}, invalid: `plugin SchemaVersion "xyzzy" is not valid`},
+		{c: &fakeCandidate{path: goodPluginPath, exec: true, meta: `{"SchemaVersion": "0.1.0"}`}, invalid: "plugin metadata does not define a vendor"},
+		{c: &fakeCandidate{path: goodPluginPath, exec: true, meta: `{"SchemaVersion": "0.1.0", "Vendor": ""}`}, invalid: "plugin metadata does not define a vendor"},
 		// This one should work
-		{c: &fakeCandidate{path: goodPluginPath, exec: true, meta: fmt.Sprintf(`{"Version": %q}`, goodVersion)}},
+		{c: &fakeCandidate{path: goodPluginPath, exec: true, meta: `{"SchemaVersion": "0.1.0", "Vendor": "e2e-testing"}`}},
 	} {
 		p, err := newPlugin(tc.c, fakeroot)
 		if tc.err != "" {
@@ -77,7 +80,8 @@ func TestValidateCandidate(t *testing.T) {
 		} else {
 			assert.NilError(t, err)
 			assert.Equal(t, NamePrefix+p.Name, goodPluginName)
-			assert.Equal(t, p.Version, goodVersion)
+			assert.Equal(t, p.SchemaVersion, "0.1.0")
+			assert.Equal(t, p.Vendor, "e2e-testing")
 		}
 	}
 }

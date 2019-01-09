@@ -49,7 +49,8 @@ func main() {
 		return cmd
 	},
 		manager.Metadata{
-			Version: "0.1.0",
-			Vendor:  "Docker Inc.",
+			SchemaVersion: "0.1.0",
+			Vendor:        "Docker Inc.",
+			Version:       "testing",
 		})
 }
